@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+}
+h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 20px 0 10px 0;
+    color: var(--vscode-editorWarning-foreground);
+}
+.form-group {
+    margin-bottom: 16px;
+}
+label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--vscode-editorForeground);
+}
+.description {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 6px;
+}
+input[type="text"], select {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    outline: none;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+input[type="text"]:focus, select:focus {
+    border-color: var(--vscode-focusBorder);
+}
+select {
+    cursor: pointer;
+}
+.btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+}
+.btn {
+    padding: 6px 16px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+}
+.btn:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+.btn-secondary {
+    background: var(--vscode-input-background);
+    color: var(--vscode-editorForeground);
+    border: 1px solid var(--vscode-input-border);
+}
+.btn-secondary:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+.status {
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: none;
+}
+.status.success {
+    display: block;
+    background: var(--vscode-terminal-ansiGreen);
+    color: var(--vscode-editor-background);
+}
+.status.error {
+    display: block;
+    background: var(--vscode-terminal-ansiRed);
+    color: var(--vscode-editor-background);
+}
+.model-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+.model-row select {
+    flex: 1;
+}
+.btn-refresh {
+    padding: 6px 10px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-editorForeground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.btn-refresh:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+.btn-refresh:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.connection-test {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+.connection-test input {
+    flex: 1;
+}
+.test-btn {
+    padding: 6px 10px;
+    background: var(--vscode-terminal-ansiGreen);
+    color: var(--vscode-editor-background);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.test-btn:hover {
+    opacity: 0.85;
+}
+.test-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>
+</head>
+<body>
+<h1>Ollama Copilot Settings</h1>
+
+<h2>Ollama Connection</h2>
+<div class="form-group">
+    <label for="ollamaEndpoint">Ollama Endpoint URL</label>
+    <div class="description">The base URL of your Ollama API server</div>
+    <div class="connection-test">
+        <input type="text" id="ollamaEndpoint" placeholder="http://localhost:11434" />
+        <button class="test-btn" id="testBtn" onclick="testConnection()">Test Connection</button>
+    </div>
+</div>
+
+<h2>Model Selection</h2>
+<div class="form-group">
+    <label for="chatModel">Chat Model</label>
+    <div class="description">Model used for chat queries in the sidebar</div>
+    <div class="model-row">
+        <select id="chatModel">
+            <option value="">-- Select a model --</option>
+        </select>
+        <button class="btn-refresh" id="refreshChatBtn" onclick="fetchModels('chatModel')">Refresh Models</button>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="autocompleteModel">Autocomplete Model</label>
+    <div class="description">Model used for inline code autocomplete suggestions</div>
+    <div class="model-row">
+        <select id="autocompleteModel">
+            <option value="">-- Select a model --</option>
+        </select>
+        <button class="btn-refresh" id="refreshAutocompleteBtn" onclick="fetchModels('autocompleteModel')">Refresh Models</button>
+    </div>
+</div>
+
+<div class="btn-row">
+    <button class="btn" onclick="saveSettings()">Save Settings</button>
+    <button class="btn btn-secondary" onclick="closePanel()">Close</button>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+var vs = acquireVsCodeApi();
+
+function showStatus(msg, isError) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status ' + (isError ? 'error' : 'success');
+}
+
+function hideStatus() {
+    document.getElementById('status').className = 'status';
+}
+
+function fetchModels(selectId) {
+    var select = document.getElementById(selectId);
+    var refreshBtn = selectId === 'chatModel' ? document.getElementById('refreshChatBtn') : document.getElementById('refreshAutocompleteBtn');
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '...';
+    
+    vs.postMessage({ type: 'fetchModels' });
+}
+
+function testConnection() {
+    var endpoint = document.getElementById('ollamaEndpoint').value.trim();
+    var testBtn = document.getElementById('testBtn');
+    
+    testBtn.disabled = true;
+    testBtn.textContent = 'Testing...';
+    hideStatus();
+    
+    vs.postMessage({ type: 'testConnection', endpoint: endpoint });
+}
+
+function saveSettings() {
+    var endpoint = document.getElementById('ollamaEndpoint').value.trim();
+    var chatModel = document.getElementById('chatModel').value;
+    var autocompleteModel = document.getElementById('autocompleteModel').value;
+    
+    if (!endpoint) {
+        showStatus('Please provide an Ollama endpoint URL', true);
+        return;
+    }
+    if (!chatModel) {
+        showStatus('Please select a chat model', true);
+        return;
+    }
+    if (!autocompleteModel) {
+        showStatus('Please select an autocomplete model', true);
+        return;
+    }
+    
+    hideStatus();
+    vs.postMessage({ 
+        type: 'saveSettings', 
+        settings: {
+            baseUrl: endpoint,
+            chatModel: chatModel,
+            autocompleteModel: autocompleteModel
+        }
+    });
+}
+
+function closePanel() {
+    vs.postMessage({ type: 'close' });
+}
+
+window.addEventListener('message', function(e) {
+    var d = e.data;
+    
+    if (d.type === 'init') {
+        // Populate form with current settings
+        document.getElementById('ollamaEndpoint').value = d.settings.baseUrl || '';
+        
+        // Set model values if available (options may not be loaded yet)
+        var chatSelect = document.getElementById('chatModel');
+        var autoSelect = document.getElementById('autocompleteModel');
+        
+        if (d.settings.chatModel) {
+            // Store the current value, it will be selected when models load
+            chatSelect.dataset.currentValue = d.settings.chatModel;
+        }
+        if (d.settings.autocompleteModel) {
+            autoSelect.dataset.currentValue = d.settings.autocompleteModel;
+        }
+    }
+    else if (d.type === 'modelsList') {
+        var selectId = d.selectId;
+        var select = document.getElementById(selectId);
+        var refreshBtn = selectId === 'chatModel' ? document.getElementById('refreshChatBtn') : document.getElementById('refreshAutocompleteBtn');
+        
+        select.innerHTML = '<option value="">-- Select a model --</option>';
+        for (var i = 0; i < d.models.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = d.models[i].name;
+            opt.textContent = d.models[i].name;
+            select.appendChild(opt);
+        }
+        
+        // Restore previously selected value
+        if (select.dataset.currentValue) {
+            select.value = select.dataset.currentValue;
+        }
+        
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh Models';
+    }
+    else if (d.type === 'modelsError') {
+        var selectId = d.selectId;
+        var select = document.getElementById(selectId);
+        var refreshBtn = selectId === 'chatModel' ? document.getElementById('refreshChatBtn') : document.getElementById('refreshAutocompleteBtn');
+        
+        select.innerHTML = '<option value="">Error loading models</option>';
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh Models';
+        showStatus('Failed to load models: ' + d.message, true);
+    }
+    else if (d.type === 'connectionResult') {
+        var testBtn = document.getElementById('testBtn');
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Connection';
+        
+        if (d.success) {
+            showStatus('Connection successful! Ollama is running.', false);
+        } else {
+            showStatus('Connection failed: ' + d.message, true);
+        }
+    }
+    else if (d.type === 'settingsSaved') {
+        showStatus('Settings saved successfully!', false);
+    }
+    else if (d.type === 'settingsError') {
+        showStatus('Failed to save settings: ' + d.message, true);
+    }
+});
+</script>
+</body>
+</html>

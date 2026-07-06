@@ -1,0 +1,86 @@
+{
+  "name": "ollama-copilot",
+  "displayName": "Ollama Copilot",
+  "description": "Local Copilot using Ollama",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ollama-copilot.git"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "npm run compile"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "ollama.chat",
+        "title": "Ollama: Open Chat Panel"
+      },
+      {
+        "command": "ollama.chatSidebar.clearChat",
+        "title": "Ollama: Clear Chat",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "ollamaCopilot.openSettings",
+        "title": "Ollama: Open Settings"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ollamaCopilot",
+          "title": "Ollama Chat",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "ollamaCopilot": [
+        {
+          "type": "webview",
+          "id": "ollamaCopilot.chatSidebar",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Ollama Copilot",
+      "properties": {
+        "ollamaCopilot.baseUrl": {
+          "type": "string",
+          "default": "http://192.168.100.123:11434",
+          "description": "The base URL of the Ollama API"
+        },
+        "ollamaCopilot.autocompleteModel": {
+          "type": "string",
+          "default": "qwen2.5-coder:1.5b",
+          "description": "The model to use for code autocomplete"
+        },
+        "ollamaCopilot.chatModel": {
+          "type": "string",
+          "default": "qwen3.6:27b",
+          "description": "The model to use for chat"
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
+    "typescript": "^5.4.0"
+  }
+}

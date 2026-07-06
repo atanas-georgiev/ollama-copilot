@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+<style>
+body{font-family:'Segoe UI',sans-serif;margin:0;padding:16px;background:#1e1e2e;color:#cdd6f4}
+.container{max-width:900px;margin:0 auto;height:100vh;display:flex;flex-direction:column}
+.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid #45475a;margin-bottom:16px}
+.header h2{margin:0;color:#89b4fa;font-size:20px}
+.btn-clear{padding:6px 12px;background:#313244;color:#a6adc8;border:1px solid #45475a;border-radius:6px;cursor:pointer}
+.btn-clear:hover{background:#f38ba8;color:#1e1e2e}
+#msgs{flex:1;overflow-y:auto;padding-right:8px}
+.msg{margin:12px 0;padding:16px;border-radius:8px;background:#313244;animation:fade .3s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.msg-u{border-left:4px solid #89b4fa}
+.msg-a{border-left:4px solid #cba6f7}
+code{background:#11111b;padding:2px 6px;border-radius:4px;color:#a6e3a1;font-size:.9em}
+pre{background:#11111b;padding:12px;border-radius:8px;overflow-x:auto;border:1px solid #45475a;margin:8px 0}
+pre code{background:none;padding:0;color:#cdd6f4}
+strong{color:#f9e2af}
+.tok{font-size:11px;color:#a6adc8;margin-top:8px;border-top:1px solid #45475a;padding-top:8px}
+.input-box{display:flex;gap:10px;padding-top:16px;border-top:1px solid #45475a;margin-top:16px}
+.input-box input{flex:1;padding:12px;border:1px solid #45475a;border-radius:8px;background:#313244;color:#cdd6f4;outline:none;font-size:14px}
+.input-box input:focus{border-color:#89b4fa}
+.input-box button{padding:12px 24px;background:#89b4fa;color:#1e1e2e;border:none;border-radius:8px;cursor:pointer;font-weight:600}
+.input-box button:disabled{background:#45475a;color:#6c7086;cursor:not-allowed}
+#typ{display:none;padding:12px;color:#a6adc8;font-style:italic}
+#badge{font-size:11px;color:#a6adc8;padding:4px 8px;background:#313244;border-radius:10px}
+.cursor{display:inline-block;width:2px;height:1em;background:#cba6f7;margin-left:2px;animation:blink 1s infinite;vertical-align:text-bottom}
+@keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+
+/* Thinking section styles */
+.think-toggle{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:8px 14px;margin:8px 0 0 0;
+    background:#181825;color:#f9e2af;border:1px solid #45475a;
+    border-radius:6px;cursor:pointer;font-size:12px;font-style:italic;
+    user-select:none;
+}
+.think-toggle:hover{background:#313244}
+.think-toggle .arrow{display:inline-block;transition:transform .2s;font-size:10px;}
+.think-toggle.open .arrow{transform:rotate(90deg)}
+.think-content{
+    display:none;margin-top:8px;padding:12px;
+    background:#181825;border-radius:6px;
+    border-left:3px solid #f9e2af;
+    font-size:12px;color:#a6adc8;
+    max-height:200px;overflow-y:auto;
+    white-space:pre-wrap;word-break:break-word;
+}
+.think-content.visible{display:block}
+.think-live{
+    display:none;padding:8px 14px;margin:8px 0;
+    background:#181825;border-radius:6px;
+    border-left:3px solid #f9e2af;
+    font-size:12px;color:#f9e2af;font-style:italic;
+}
+.think-live.visible{display:block}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header"><h2>Ollama Copilot Chat</h2><div style="display:flex;gap:8px;align-items:center"><span id="badge"></span><button class="btn-clear" onclick="doClear()">Clear</button></div></div>
+<div id="msgs"></div>
+<div id="typ">Thinking...</div>
+<div class="input-box"><input id="inp" placeholder="Ask about your code..." onkeydown="if(event.key==='Enter')doSend()"><button id="sendBtn" onclick="doSend()">Send</button></div>
+</div>
+<script>
+var vs=acquireVsCodeApi();
+var pKey='';
+var hist='';
+var thinkingBuf='';
+var streaming=false;
+var currentAsstEl=null;
+var currentContentEl=null;
+var currentThinkLiveEl=null;
+var inThinking=false;
+
+function md(t){
+t=t.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>');
+t=t.replace(/```[\w]*\n([\s\S]*?)```/gi,'<pre><code>$1</code></pre>');
+t=t.replace(/`([^`]+)`/g,'<code>$1</code>');
+t=t.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+t=t.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+t=t.replace(/\n\n/g,'</p><p>');
+return '<p>'+t+'</p>';
+}
+
+function addMsg(txt,isU,tok){
+var d=document.getElementById('msgs');
+var m=document.createElement('div');
+m.className='msg '+(isU?'msg-u':'msg-a');
+var c=document.createElement('div');
+c.className='content';
+c.innerHTML=isU?txt:md(txt);
+m.appendChild(c);
+if(tok){
+var t=document.createElement('div');
+t.className='tok';
+t.innerHTML='Tokens: '+tok.tokenCount+' | Time: '+(tok.totalTime/1000).toFixed(2)+'s | History: '+tok.historyLength+' messages';
+m.appendChild(t);
+updateBadge(tok.historyLength);
+}
+d.appendChild(m);
+d.scrollTop=d.scrollHeight;
+return m;
+}
+
+function updateBadge(n){document.getElementById('badge').textContent=n+' messages';}
+function showTyp(){document.getElementById('typ').style.display='block';}
+function hideTyp(){document.getElementById('typ').style.display='none';}
+function setStreaming(s){
+streaming=s;
+document.getElementById('inp').disabled=s;
+var btn=document.getElementById('sendBtn');
+btn.disabled=s;
+btn.textContent=s?'...':'Send';
+}
+
+function doSend(){
+var i=document.getElementById('inp');
+var q=i.value.trim();
+if(!q||streaming)return;
+addMsg(q,true,null);
+i.value='';
+showTyp();
+setStreaming(true);
+vs.postMessage({type:'query',query:q});
+}
+
+function doClear(){
+if(streaming)return;
+vs.postMessage({type:'clear'});
+}
+
+window.addEventListener('message',function(e){
+var d=e.data;
+if(d.type==='init'){
+pKey=d.panelKey;
+addMsg(d.message,false,null);
+}
+else if(d.type==='thinking'){
+showTyp();
+}
+else if(d.type==='stream_token'){
+hideTyp();
+if(!currentAsstEl){
+currentAsstEl=addMsg('',false,null);
+currentContentEl=currentAsstEl.querySelector('.content');
+// Create live thinking indicator
+var tl=document.createElement('div');
+tl.className='think-live visible';
+tl.textContent='🧠 Thinking...';
+currentAsstEl.insertBefore(tl, currentAsstEl.querySelector('.tok') || null);
+currentThinkLiveEl=tl;
+}
+
+// Parse thinking tags from token
+var token=d.token;
+var prevInThinking=inThinking;
+
+// Check for thinking start tag
+var thinkStartRegex=/<think>|<thinking>/gi;
+var thinkEndRegex=/<\/think>|<\/thinking>/gi;
+
+while(token.length>0){
+if(!inThinking){
+var idx=token.search(thinkStartRegex);
+if(idx===-1){
+// No thinking tag found, append to response
+hist+=token;
+currentContentEl.innerHTML=md(hist);
+token='';
+}else if(idx>0){
+// Append text before tag and enter thinking mode
+hist+=token.substring(0,idx);
+currentContentEl.innerHTML=md(hist);
+token=token.substring(idx);
+inThinking=true;
+if(currentThinkLiveEl) currentThinkLiveEl.classList.add('visible');
+}else{
+// Starts with thinking tag
+inThinking=true;
+token=token.substring(token.match(thinkStartRegex)[0].length);
+if(currentThinkLiveEl) currentThinkLiveEl.classList.add('visible');
+}
+}else{
+var idx=token.search(thinkEndRegex);
+if(idx===-1){
+// Still in thinking, accumulate
+thinkingBuf+=token;
+token='';
+}else if(idx>0){
+thinkingBuf+=token.substring(0,idx);
+token=token.substring(idx);
+inThinking=false;
+if(currentThinkLiveEl) currentThinkLiveEl.classList.remove('visible');
+addThinkingSection();
+}else{
+// Ends with closing tag
+token=token.substring(token.match(thinkEndRegex)[0].length);
+inThinking=false;
+if(currentThinkLiveEl) currentThinkLiveEl.classList.remove('visible');
+addThinkingSection();
+}
+}
+}
+
+var msgsDiv=document.getElementById('msgs');
+msgsDiv.scrollTop=msgsDiv.scrollHeight;
+}
+else if(d.type==='response_end'){
+hideTyp();
+setStreaming(false);
+// If still in thinking mode, flush remaining buffer
+if(inThinking && thinkingBuf){
+addThinkingSection();
+inThinking=false;
+}
+if(currentThinkLiveEl) currentThinkLiveEl.classList.remove('visible');
+if(currentAsstEl){
+var tokDiv=currentAsstEl.querySelector('.tok');
+if(tokDiv){
+tokDiv.innerHTML='Tokens: '+d.tokenInfo.tokenCount+' | Time: '+(d.tokenInfo.totalTime/1000).toFixed(2)+'s | History: '+d.tokenInfo.historyLength+' messages';
+}
+updateBadge(d.tokenInfo.historyLength);
+}
+hist='';
+thinkingBuf='';
+currentAsstEl=null;
+currentContentEl=null;
+currentThinkLiveEl=null;
+inThinking=false;
+}
+else if(d.type==='cleared'){
+document.getElementById('msgs').innerHTML='';
+updateBadge(0);
+hist='';
+thinkingBuf='';
+currentAsstEl=null;
+currentContentEl=null;
+currentThinkLiveEl=null;
+inThinking=false;
+}
+});
+
+function addThinkingSection(){
+if(!thinkingBuf||!currentAsstEl) return;
+// Remove live indicator if present
+if(currentThinkLiveEl){
+currentThinkLiveEl.classList.remove('visible');
+}
+var toggle=document.createElement('div');
+toggle.className='think-toggle';
+toggle.innerHTML='<span class="arrow">▶</span> View thinking process ('+thinkingBuf.length+' chars)';
+toggle.onclick=function(){
+toggle.classList.toggle('open');
+var tc=currentAsstEl.querySelector('.think-content');
+if(tc) tc.classList.toggle('visible');
+};
+var content=document.createElement('div');
+content.className='think-content';
+content.textContent=thinkingBuf;
+currentAsstEl.insertBefore(toggle, currentThinkLiveEl || null);
+currentAsstEl.insertBefore(content, currentThinkLiveEl || null);
+thinkingBuf='';
+}
+</script>
+</body>
+</html>

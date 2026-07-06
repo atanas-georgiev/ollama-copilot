@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editor-foreground);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-sideBar-background);
+    flex-shrink: 0;
+}
+.header h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-editorForeground);
+}
+.btn-clear {
+    padding: 2px 8px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.btn-clear:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+#badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    border-radius: 8px;
+}
+#msgs {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    scrollbar-width: thin;
+}
+.msg {
+    margin: 6px 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--vscode-editor-background);
+    animation: fade 0.2s ease;
+    font-size: 12px;
+    line-height: 1.5;
+}
+@keyframes fade {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.msg-u {
+    border-left: 3px solid var(--vscode-editorLineNumber-activeForeground);
+    background: var(--vscode-input-background);
+}
+.msg-a {
+    border-left: 3px solid var(--vscode-charts-purple);
+}
+code {
+    background: var(--vscode-textCodeBlock-background);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--vscode-editorForeground);
+    font-size: 0.9em;
+    font-family: var(--vscode-editor-font-family, monospace);
+}
+pre {
+    background: var(--vscode-textCodeBlock-background);
+    padding: 8px 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--vscode-panel-border);
+    margin: 6px 0;
+}
+pre code { background: none; padding: 0; }
+strong { color: var(--vscode-editorWarning-foreground); }
+.tok {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 4px;
+    border-top: 1px solid var(--vscode-panel-border);
+    padding-top: 4px;
+}
+.input-box {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--vscode-panel-border);
+    background: var(--vscode-sideBar-background);
+    flex-shrink: 0;
+}
+.input-box input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    outline: none;
+    font-size: 12px;
+}
+.input-box input:focus { border-color: var(--vscode-focusBorder); }
+.input-box button {
+    padding: 6px 14px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+}
+.input-box button:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+.input-box button:disabled {
+    background: var(--vscode-disabledForeground);
+    cursor: not-allowed;
+}
+#typ {
+    display: none;
+    padding: 6px 12px;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    font-size: 11px;
+}
+.think-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    margin: 4px 0 0 0;
+    background: var(--vscode-editor-background);
+    color: var(--vscode-editorWarning-foreground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-style: italic;
+    user-select: none;
+}
+.think-toggle:hover {
+    background: var(--vscode-input-background);
+}
+.think-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.2s;
+    font-size: 9px;
+}
+.think-toggle.open .arrow {
+    transform: rotate(90deg);
+}
+.think-content {
+    display: none;
+    margin-top: 4px;
+    padding: 8px;
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    border-left: 2px solid var(--vscode-editorWarning-foreground);
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.think-content.visible {
+    display: block;
+}
+.think-live {
+    display: none;
+    padding: 4px 8px;
+    margin: 4px 0;
+    background: var(--vscode-editor-background);
+    border-radius: 4px;
+    border-left: 2px solid var(--vscode-editorWarning-foreground);
+    font-size: 10px;
+    color: var(--vscode-editorWarning-foreground);
+    font-style: italic;
+}
+.think-live.visible {
+    display: block;
+}
+
+/* Token Budget Bar */
+.token-budget {
+    padding: 6px 12px;
+    background: var(--vscode-sideBar-background);
+    border-top: 1px solid var(--vscode-panel-border);
+    flex-shrink: 0;
+}
+.token-budget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+}
+.token-budget-label { font-weight: 600; }
+.token-budget-values { display: flex; gap: 8px; }
+.token-budget-values span { opacity: 0.7; }
+.token-budget-values .used {
+    color: var(--vscode-editorWarning-foreground);
+    font-weight: 600;
+}
+.token-bar-track {
+    width: 100%;
+    height: 4px;
+    background: var(--vscode-input-background);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.token-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s ease;
+    background: var(--vscode-charts-green);
+}
+.token-bar-fill.warning { background: var(--vscode-editorWarning-foreground); }
+.token-bar-fill.danger { background: var(--vscode-editorError-foreground); }
+.token-bar-fill.truncated {
+    background: var(--vscode-editorError-foreground);
+    animation: pulse 1s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Session Stats */
+.token-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px;
+    background: var(--vscode-sideBar-background);
+    border-top: 1px solid var(--vscode-panel-border);
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    flex-shrink: 0;
+}
+.token-stats .stat { display: flex; align-items: center; gap: 4px; }
+.token-stats .stat-label { opacity: 0.7; }
+.token-stats .stat-value { font-weight: 600; color: var(--vscode-editorForeground); }
+.token-stats .divider { width: 1px; height: 12px; background: var(--vscode-panel-border); }
+
+table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 11px; }
+th, td { border: 1px solid var(--vscode-panel-border); padding: 4px 8px; text-align: left; }
+th { background: var(--vscode-input-background); font-weight: 600; color: var(--vscode-editorWarning-foreground); }
+tr:nth-child(even) { background: var(--vscode-sideBar-background); }
+</style>
+</head>
+<body>
+    <div class="header">
+        <h2>Ollama Copilot</h2>
+        <div style="display:flex;gap:6px;align-items:center">
+            <span id="badge"></span>
+            <button class="btn-clear" onclick="doSettings()" title="Open Settings">&#9881;</button>
+            <button class="btn-clear" onclick="doClear()">Clear</button>
+        </div>
+    </div>
+    <div id="msgs"></div>
+    <div id="typ">Thinking...</div>
+
+    <!-- Token Budget Bar -->
+    <div class="token-budget" id="tokenBudget">
+        <div class="token-budget-header">
+            <span class="token-budget-label">Token Budget</span>
+            <div class="token-budget-values">
+                <span class="used" id="budgetUsed">0</span>
+                <span>/ <span id="budgetTotal">9000</span></span>
+                <span>(<span id="budgetPct">0</span>%)</span>
+            </div>
+        </div>
+        <div class="token-bar-track">
+            <div class="token-bar-fill" id="budgetBar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Session Stats -->
+    <div class="token-stats" id="tokenStats">
+        <div class="stat">
+            <span class="stat-label">Last:</span>
+            <span class="stat-value" id="lastTokens">0</span>
+            <span class="stat-label">tokens</span>
+        </div>
+        <div class="divider"></div>
+        <div class="stat">
+            <span class="stat-label">Session:</span>
+            <span class="stat-value" id="sessionTokens">0</span>
+            <span class="stat-label">tokens</span>
+        </div>
+        <div class="divider"></div>
+        <div class="stat">
+            <span class="stat-label">Requests:</span>
+            <span class="stat-value" id="requestCount">0</span>
+        </div>
+    </div>
+
+    <div class="input-box">
+        <input type="text" id="inp" placeholder="Ask anything..." onkeydown="if(event.key==='Enter')doSend()">
+        <button id="sendBtn" onclick="doSend()">Send</button>
+    </div>
+
+    <script>
+const vscode = acquireVsCodeApi();
+let sessionTotalTokens = 0;
+let requestCount = 0;
+let currentAssistantContentEl = null;
+let currentTokenCount = 0;
+let currentResponseText = '';
+let isInThinking = false;
+let currentThinkContentEl = null;
+let currentThinkLiveEl = null;
+
+function doClear() {
+    document.getElementById('msgs').innerHTML = '';
+    sessionTotalTokens = 0;
+    requestCount = 0;
+    document.getElementById('lastTokens').textContent = '0';
+    document.getElementById('sessionTokens').textContent = '0';
+    document.getElementById('requestCount').textContent = '0';
+    updateBudgetBar(0, 9000, false);
+    vscode.postMessage({ type: 'clear' });
+}
+
+function doSettings() {
+    vscode.postMessage({ type: 'openSettings' });
+}
+
+function doSend() {
+    const inp = document.getElementById('inp');
+    const msg = inp.value.trim();
+    if (!msg) return;
+    inp.value = '';
+
+    addUserMsg(msg);
+
+    currentResponseText = '';
+    currentTokenCount = 0;
+    isInThinking = false;
+    currentThinkContentEl = null;
+
+    currentAssistantContentEl = createAssistantStreamingMsg();
+    showTyping(true);
+
+    vscode.postMessage({ type: 'query', query: msg });
+}
+
+function addUserMsg(text) {
+    const msgs = document.getElementById('msgs');
+    const div = document.createElement('div');
+    div.className = 'msg msg-u';
+    div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+function createAssistantStreamingMsg() {
+    const msgs = document.getElementById('msgs');
+    const div = document.createElement('div');
+    div.className = 'msg msg-a';
+
+    const thinkLive = document.createElement('div');
+    thinkLive.className = 'think-live';
+    thinkLive.textContent = 'thinking...';
+    div.appendChild(thinkLive);
+    currentThinkLiveEl = thinkLive;
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'assistant-content';
+    div.appendChild(contentDiv);
+    currentAssistantContentEl = contentDiv;
+
+    const tok = document.createElement('div');
+    tok.className = 'tok';
+    tok.style.display = 'none';
+    div.appendChild(tok);
+
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    return contentDiv;
+}
+
+function appendStreamToken(token) {
+    if (!currentAssistantContentEl) return;
+
+    currentResponseText += token;
+    currentTokenCount++;
+
+    if (currentResponseText.includes('<thinking>') || currentResponseText.includes('<think>')) {
+        isInThinking = true;
+        if (currentThinkLiveEl) {
+            currentThinkLiveEl.classList.add('visible');
+        }
+    }
+
+    const visibleText = currentResponseText
+        .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+        .replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+    currentAssistantContentEl.innerHTML = renderMd(visibleText);
+
+    const tokEl = currentAssistantContentEl?.parentElement?.querySelector('.tok');
+    if (tokEl) {
+        tokEl.textContent = currentTokenCount + ' tokens';
+        tokEl.style.display = 'block';
+    }
+
+    const msgs = document.getElementById('msgs');
+    msgs.scrollTop = msgs.scrollHeight;
+}
+
+function finalizeResponse(content, tokenInfo) {
+    if (!currentAssistantContentEl) return;
+
+    if (currentThinkLiveEl) {
+        currentThinkLiveEl.classList.remove('visible');
+    }
+
+    let displayContent = content
+        .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+        .replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+    let html = renderMd(displayContent);
+    html = wrapThinking(html);
+    currentAssistantContentEl.innerHTML = html;
+
+    const tokEl = currentAssistantContentEl?.parentElement?.querySelector('.tok');
+    if (tokEl && tokenInfo) {
+        const speed = tokenInfo.totalTime > 0 ? (tokenInfo.tokenCount / (tokenInfo.totalTime / 1000)).toFixed(1) : 0;
+        tokEl.textContent = tokenInfo.tokenCount + ' tokens in ' + (tokenInfo.totalTime / 1000).toFixed(1) + 's (' + speed + ' tok/s)';
+        tokEl.style.display = 'block';
+    }
+
+    // Update session stats
+    if (tokenInfo) {
+        sessionTotalTokens += tokenInfo.tokenCount;
+        requestCount++;
+        document.getElementById('lastTokens').textContent = tokenInfo.tokenCount;
+        document.getElementById('sessionTokens').textContent = sessionTotalTokens;
+        document.getElementById('requestCount').textContent = requestCount;
+    }
+
+    currentAssistantContentEl = null;
+    showTyping(false);
+}
+
+function updateBudgetBar(usedTokens, budgetTokens, willTruncate) {
+    const pct = Math.min(100, (usedTokens / budgetTokens) * 100);
+    document.getElementById('budgetUsed').textContent = usedTokens;
+    document.getElementById('budgetTotal').textContent = budgetTokens;
+    document.getElementById('budgetPct').textContent = Math.round(pct);
+
+    const bar = document.getElementById('budgetBar');
+    bar.style.width = pct + '%';
+    bar.className = 'token-bar-fill';
+    if (willTruncate) {
+        bar.classList.add('truncated');
+    } else if (pct > 85) {
+        bar.classList.add('danger');
+    } else if (pct > 65) {
+        bar.classList.add('warning');
+    }
+}
+
+function showTyping(show) {
+    document.getElementById('typ').style.display = show ? 'block' : 'none';
+    const btn = document.getElementById('sendBtn');
+    if (btn) btn.disabled = show;
+}
+
+function renderMd(text) {
+    let html = text
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>');
+
+    // Code blocks
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
+        return '<pre><code class="language-' + lang + '">' + code.trim() + '</code></pre>';
+    });
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    // Headers
+    html = html.replace(/^### (.+)$/gm, '<strong style="font-size:13px">$1</strong>');
+    html = html.replace(/^## (.+)$/gm, '<strong style="font-size:14px">$1</strong>');
+    html = html.replace(/^# (.+)$/gm, '<strong style="font-size:15px">$1</strong>');
+
+    // Unordered lists
+    html = html.replace(/^- (.+)$/gm, '&bull; $1');
+
+    // Horizontal rules
+    html = html.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--vscode-panel-border);margin:8px 0">');
+
+    // Line breaks (preserve paragraphs)
+    html = html.replace(/\n\n/g, '</p><p>');
+    html = html.replace(/\n/g, '<br>');
+    html = '<p>' + html + '</p>';
+
+    // Clean up empty paragraphs
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    html = html.replace(/<p>\s*(<pre)/g, '$1');
+    html = html.replace(/(<\/pre>)\s*<\/p>/g, '$1');
+    html = html.replace(/<p>\s*(<hr)/g, '$1');
+    html = html.replace(/(<\/hr>)\s*<\/p>/g, '$1');
+
+    return html;
+}
+
+function toggleThink(el) {
+    el.classList.toggle('open');
+    var c = el.nextElementSibling;
+    if (c) c.classList.toggle('visible');
+}
+
+function wrapThinking(html) {
+    // Wrap any remaining thinking content in collapsible sections
+    html = html.replace(
+        /(<thinking>[\s\S]*?<\/thinking>)/gi,
+        function(match) {
+            var content = match.replace(/<thinking>/g, '').replace(/<\/thinking>/g, '');
+            return '<div class="think-toggle" onclick="toggleThink(this)"><span class="arrow">&#9654;</span> View thinking process</div><div class="think-content">' + content + '</div>';
+        }
+    );
+    return html;
+}
+
+window.addEventListener('message', function(event) {
+    const msg = event.data;
+
+    if (msg.type === 'init') {
+        // Initial greeting from extension
+        const div = document.createElement('div');
+        div.className = 'msg msg-a';
+        div.textContent = msg.message;
+        document.getElementById('msgs').appendChild(div);
+    }
+    else if (msg.type === 'thinking') {
+        showTyping(msg.thinking);
+    }
+    else if (msg.type === 'stream_token') {
+        appendStreamToken(msg.token);
+    }
+    else if (msg.type === 'response_end') {
+        finalizeResponse(msg.content, msg.tokenInfo);
+        if (msg.budgetInfo) {
+            updateBudgetBar(msg.budgetInfo.usedTokens, msg.budgetInfo.budgetTokens, msg.budgetInfo.willTruncate);
+        }
+    }
+    else if (msg.type === 'cleared') {
+        // Already cleared locally
+    }
+});
+    </script>
+</body>
+</html>
