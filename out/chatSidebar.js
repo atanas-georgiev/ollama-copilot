@@ -84,12 +84,12 @@ class ChatSidebarProvider {
                         }
                     }
                 }
-                // Build the current user message with context
-                const currentUserMessage = contextPrompt
+                // Build the current user message with context (for API)
+                const currentUserMessageWithContext = contextPrompt
                     ? `Context information:\n${contextPrompt}${relevantFilesContext}\n\nQuestion: ${message.query}`
                     : message.query;
-                // Add user message to history
-                chatState.messages.push({ role: 'user', content: currentUserMessage });
+                // Add user message to history - store original query for budget calculations
+                chatState.messages.push({ role: 'user', content: currentUserMessageWithContext, originalQuery: message.query });
                 // Manage token budget
                 const messagesToSend = manageChatHistory(chatState, baseUrl, chatModel || 'qwen3.6:27b');
                 // Stream response tokens to webview
@@ -148,7 +148,14 @@ function estimateTokens(text) {
     return Math.ceil(text.length / 4);
 }
 function calculateTokenBudget(state) {
-    const usedTokens = state.messages.reduce((sum, msg) => sum + estimateTokens(msg.content), 0);
+    // For budget calculations, use originalQuery for user messages (without context overhead)
+    // and full content for assistant responses
+    const usedTokens = state.messages.reduce((sum, msg) => {
+        const textToCount = msg.role === 'user' && msg.originalQuery
+            ? msg.originalQuery
+            : msg.content;
+        return sum + estimateTokens(textToCount);
+    }, 0);
     const remainingTokens = Math.max(0, HISTORY_TOKEN_BUDGET - usedTokens);
     const percentageUsed = Math.min(100, (usedTokens / HISTORY_TOKEN_BUDGET) * 100);
     const willTruncate = usedTokens > HISTORY_TOKEN_BUDGET;
