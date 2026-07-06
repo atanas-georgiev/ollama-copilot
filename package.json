@@ -26,10 +26,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "ollama.chat",
-        "title": "Ollama: Open Chat Panel"
-      },
-      {
         "command": "ollama.chatSidebar.clearChat",
         "title": "Ollama: Clear Chat",
         "icon": "$(clear-all)"

@@ -84,27 +84,62 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
                 // Manage token budget
                 const messagesToSend = manageChatHistory(chatState, baseUrl, chatModel || 'qwen3.6:27b');
 
-                // Stream response tokens to webview
+                // Stream response tokens to webview with thinking detection
                 let fullResponse = "";
+                let thinkingContent = "";
                 let tokenCount = 0;
                 const startTime = Date.now();
+                let isThinking = false;
+                let thinkingStarted = false;
 
                 await streamOllamaResponseWithHistory(
                     messagesToSend,
                     chatModel || 'qwen3.6:27b',
                     baseUrl || 'http://192.168.100.123:11434',
-                    (token: string) => {
+                    (token: string, inThinking: boolean) => {
                         tokenCount++;
                         fullResponse += token;
-                        webviewView.webview.postMessage({
-                            type: 'stream_token',
-                            token: token,
-                            tokenCount: tokenCount
-                        });
+
+                        if (inThinking) {
+                            isThinking = true;
+                            if (!thinkingStarted) {
+                                thinkingStarted = true;
+                                // Notify webview that thinking has started
+                                webviewView.webview.postMessage({
+                                    type: 'thinking_start'
+                                });
+                            }
+                            thinkingContent += token;
+                            // Stream thinking content in real-time
+                            webviewView.webview.postMessage({
+                                type: 'stream_thinking',
+                                token: token
+                            });
+                        } else {
+                            // If we were thinking and now we're not, notify the webview
+                            if (thinkingStarted && !inThinking) {
+                                webviewView.webview.postMessage({
+                                    type: 'thinking_end'
+                                });
+                            }
+                            // Stream regular token
+                            webviewView.webview.postMessage({
+                                type: 'stream_token',
+                                token: token,
+                                tokenCount: tokenCount
+                            });
+                        }
                     }
                 );
 
                 const totalTime = Date.now() - startTime;
+
+                // If thinking never properly ended, send thinking_end
+                if (thinkingStarted) {
+                    webviewView.webview.postMessage({
+                        type: 'thinking_end'
+                    });
+                }
 
                 // Strip thinking tags before storing in history
                 var cleanResponse = fullResponse
@@ -119,6 +154,7 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
                 webviewView.webview.postMessage({
                     type: 'response_end',
                     content: fullResponse,
+                    thinkingContent: thinkingContent,
                     tokenInfo: {
                         tokenCount: tokenCount,
                         totalTime: totalTime,
@@ -301,7 +337,7 @@ async function streamOllamaResponseWithHistory(
     messages: Array<{role: string, content: string}>,
     model: string,
     baseUrl: string,
-    onToken: (token: string) => void
+    onToken: (token: string, inThinking: boolean) => void
 ): Promise<void> {
 
     const systemPrompt = `You are an expert software engineering assistant operating inside a code editor.
@@ -359,13 +395,15 @@ No unnecessary commentary`;
         const reader = res.body?.getReader();
         if (!reader) {
             console.warn("[OllamaCopilot] No reader available from response");
-            onToken("[Error: No response stream available]");
+            onToken("[Error: No response stream available]", false);
             return;
         }
 
         const decoder = new TextDecoder();
         let buffer = "";
         let tokenCount = 0;
+        let insideThinking = false;
+        let accumulatedToken = "";
 
         while (true) {
             const { value, done } = await reader.read();
@@ -384,7 +422,35 @@ No unnecessary commentary`;
                     const token = json.message?.content;
                     if (token) {
                         tokenCount++;
-                        onToken(token);
+                        // Accumulate token to detect thinking tag boundaries
+                        accumulatedToken += token;
+
+                        // Check for thinking tag openings and closings
+                        let inThink = insideThinking;
+                        let cleanAccumulated = accumulatedToken;
+
+                        // Detect opening tags: <thinking> or <think>
+                        if (!insideThinking) {
+                            const openMatch = cleanAccumulated.match(/^(<thinking>|<think>)([\s\S]*)/);
+                            if (openMatch) {
+                                insideThinking = true;
+                                inThink = true;
+                                cleanAccumulated = openMatch[2]; // strip the opening tag
+                            }
+                        }
+
+                        // Detect closing tags: </thinking> or </think>
+                        if (insideThinking) {
+                            const closeMatch = cleanAccumulated.match(/([\s\S]*)(<\/thinking>|<\/think>)$/);
+                            if (closeMatch) {
+                                insideThinking = false;
+                                inThink = false;
+                                cleanAccumulated = closeMatch[1]; // strip the closing tag
+                            }
+                        }
+
+                        onToken(cleanAccumulated, inThink);
+                        accumulatedToken = "";
                     }
                 } catch (parseError) {
                     console.warn(`[OllamaCopilot] Failed to parse stream line: ${line}`);
@@ -403,6 +469,6 @@ No unnecessary commentary`;
             error instanceof Error ? error.message : String(error)
         );
         const errorMsg = error instanceof Error ? error.message : String(error);
-        onToken(`[Error: ${errorMsg}]`);
+        onToken(`[Error: ${errorMsg}]`, false);
     }
 }

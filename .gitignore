@@ -1,2 +1,75 @@
+# Dependencies
 node_modules/
+
+# Build output
 out/
+dist/
+build/
+
+# VS Code extension package
+*.vsix
+
+# IDE and editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
+Desktop.ini
+.Trash-*
+.Spots
+.fseventsd
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle typestore
+.typeem
+
+# Optional REPL history
+.node_repl_history
+
+# Dotenv environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript output (alternative locations)
+*.js
+*.js.map
+
+# VS Code extension development
+.debugger/
+
+# Extension testing
+.test-reports/
