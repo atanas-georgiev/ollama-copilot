@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { OllamaInlineProvider } from "./inlineProvider";
-import { ChatSidebarProvider } from "./chatSidebar";
-import { SettingsPanelProvider } from "./settingsPanel";
-import { registerDiffCommand } from "./diffEditor";
+import { OllamaInlineProvider } from "./providers/inlineProvider";
+import { ChatSidebarProvider } from "./ui/chatSidebar";
+import { SettingsPanelProvider } from "./ui/settingsPanel";
+import { registerDiffCommand } from "./commands/diffEditor";
 
 export function activate(context: vscode.ExtensionContext) {
     vscode.window.showInformationMessage("Ollama Copilot activated 🚀");

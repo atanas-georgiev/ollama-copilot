@@ -36,10 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const inlineProvider_1 = require("./inlineProvider");
-const chatSidebar_1 = require("./chatSidebar");
-const settingsPanel_1 = require("./settingsPanel");
-const diffEditor_1 = require("./diffEditor");
+const inlineProvider_1 = require("./providers/inlineProvider");
+const chatSidebar_1 = require("./ui/chatSidebar");
+const settingsPanel_1 = require("./ui/settingsPanel");
+const diffEditor_1 = require("./commands/diffEditor");
 function activate(context) {
     vscode.window.showInformationMessage("Ollama Copilot activated 🚀");
     // Register inline completion provider for autocomplete

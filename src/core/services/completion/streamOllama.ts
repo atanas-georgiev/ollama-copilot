@@ -1,3 +1,5 @@
+import { OLLAMA_API_ENDPOINT } from "../../../config/constants";
+
 export async function streamOllama(
     prompt: string,
     onToken: (t: string) => void,
@@ -5,12 +7,12 @@ export async function streamOllama(
     baseUrl: string
 ) {
     const apiStartTime = Date.now();
-    console.log(`[OllamaCopilot] API request to ${baseUrl}/api/chat`);
+    console.log(`[OllamaCopilot] API request to ${baseUrl}${OLLAMA_API_ENDPOINT}`);
     console.log(`[OllamaCopilot] Model: ${model}`);
 
     let errorMessage = "";
     try {
-        const res = await fetch(`${baseUrl}/api/chat`, {
+        const res = await fetch(`${baseUrl}${OLLAMA_API_ENDPOINT}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

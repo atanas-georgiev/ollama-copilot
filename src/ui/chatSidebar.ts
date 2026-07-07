@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { buildChatContext, formatChatContextForPrompt, findRelevantFiles } from "./chatContext";
+import { buildChatContext, formatChatContextForPrompt, findRelevantFiles } from "../services/context/chatContext";
 
 interface ChatMessage {
     role: 'user' | 'assistant';
@@ -34,7 +34,29 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
             localResourceRoots: [this._extensionUri]
         };
 
-        webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+        // Ensure the HTML is properly loaded with error handling
+        try {
+            webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+        } catch (error) {
+            console.error('Failed to set webview HTML:', error);
+            // Set a fallback HTML in case of errors
+            webviewView.webview.html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <title>Ollama Chat Sidebar</title>
+</head>
+<body>
+    <div style="padding: 20px; font-family: sans-serif;">
+        <h2>Chat Sidebar Error</h2>
+        <p>Failed to load chat interface. Please check the developer console for details.</p>
+        <pre>${error instanceof Error ? error.message : 'Unknown error'}</pre>
+    </div>
+</body>
+</html>`;
+        }
 
         // Send initial greeting
         webviewView.webview.postMessage({
@@ -175,8 +197,53 @@ export class ChatSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     private getHtmlForWebview(webview: vscode.Webview): string {
-        const htmlPath = path.join(__dirname, '..', 'src', 'chatSidebar.html');
-        return fs.readFileSync(htmlPath, 'utf-8');
+        try {
+            // Try multiple possible paths for the HTML file
+            const possiblePaths = [
+                path.join(this._extensionUri.fsPath, 'chatSidebar.html'),
+                path.join(__dirname, '..', 'chatSidebar.html'),
+                path.join(__dirname, '..', 'src', 'chatSidebar.html')
+            ];
+            
+            let htmlContent = '';
+            
+            for (const htmlPath of possiblePaths) {
+                try {
+                    if (fs.existsSync(htmlPath)) {
+                        htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+                        break;
+                    }
+                } catch (e) {
+                    // Continue to next path
+                    continue;
+                }
+            }
+            
+            if (!htmlContent) {
+                throw new Error(`Could not find chatSidebar.html in any expected location. Searched: ${possiblePaths.join(', ')}`);
+            }
+            
+            return htmlContent;
+        } catch (error) {
+            console.error('Error loading chatSidebar.html:', error);
+            // Return a basic fallback HTML to prevent crash
+            return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    <title>Ollama Chat Sidebar</title>
+</head>
+<body>
+    <div style="padding: 20px; font-family: sans-serif;">
+        <h2>Error Loading Chat Interface</h2>
+        <p>Failed to load chat sidebar. Please check the developer console for details.</p>
+        <pre>${(error as Error).message || 'Unknown error'}</pre>
+    </div>
+</body>
+</html>`;
+        }
     }
 }
 

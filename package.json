@@ -19,7 +19,7 @@
   ],
   "main": "./out/extension.js",
   "scripts": {
-    "compile": "tsc -p .",
+    "compile": "tsc -p . && copyfiles -u 1 \"src/**/*.html\" out/",
     "watch": "tsc -watch -p .",
     "vscode:prepublish": "npm run compile"
   },
@@ -75,8 +75,12 @@
     }
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
     "@types/vscode": "^1.125.0",
+    "copyfiles": "^2.4.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "typescript": "^5.4.0"
   }
 }

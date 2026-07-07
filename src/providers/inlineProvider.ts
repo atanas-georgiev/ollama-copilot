@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
-import { streamOllama } from "./streamOllama";
-import { buildEnhancedContext } from "./repoContext";
-import { buildPrompt } from "./smartPrompt";
+import { streamOllama } from "../core/services/completion/streamOllama";
+import { buildEnhancedContext } from "../services/context/repoContext";
+import { buildPrompt } from "../core/services/completion/smartPrompt";
 
 export class OllamaInlineProvider
     implements vscode.InlineCompletionItemProvider
@@ -42,7 +42,7 @@ export class OllamaInlineProvider
 
         await streamOllama(
             prompt,
-            (token) => {
+            (token: string) => {
                 tokenCount++;
                 result += token;
             },

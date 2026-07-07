@@ -1,0 +1,13 @@
+
+{
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "Keep responses concise. Do not output entire files. Prefer minimal diffs. Do not include unchanged code. For large tasks, split work into steps and keep each response under 120 lines."
+    }
+  ],
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "text": "Review only the selected code. Return concise findings. Do not rewrite the full file."
+    }
+  ]
+}
